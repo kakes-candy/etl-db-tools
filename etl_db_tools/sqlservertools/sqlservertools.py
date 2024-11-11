@@ -1,5 +1,7 @@
-
 from etl_db_tools.base.connection import Connection
+from collections.abc import Iterator
+import pyodbc
+
 
 class SQLserverconnection(Connection):
     def __init__(self, driver: str, server: str, database:str, **kwargs) -> None:
@@ -20,4 +22,16 @@ class SQLserverconnection(Connection):
         final_cnxn = ';'.join(cnxn_ls)
         return final_cnxn
     
+    def select_data(self, query: str) -> Iterator[list[dict]]:
 
+        with pyodbc.connect(self.to_string()) as conn:
+            cursor = conn.cursor()
+            cursor.execute(query)
+            while True:
+                result = cursor.fetchmany(5000)
+                columns = [column[0] for column in cursor.description]
+                if result:
+                    yield([dict(zip(columns, x)) for x in result])
+                else:
+                    break
+        conn.close()    

@@ -2,3 +2,6 @@
 __pycache__
 .pytest_cache/
 main.py
+.env
+secrets.toml
+.DS_Store

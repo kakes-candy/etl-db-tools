@@ -5,3 +5,4 @@ main.py
 .env
 secrets.toml
 .DS_Store
+.vscode/

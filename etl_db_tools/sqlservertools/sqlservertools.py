@@ -192,6 +192,17 @@ class SQLserverconnection(Connection):
             cursor.commit()
         conn.close()
 
+    def list_tables(self, schema: str, startswith: str = None, contains: str = None) -> list[str]:
+        data = {'schema': schema,
+                'startswith': startswith,
+                'contains':contains}
+        
+        q = sql_render(template='find_tables.sql', data = data)
+        ls = self.select_data(q)
+        ls_flat = [x.get('table_name') for x in ls]
+        return (ls_flat)
+
+
 
 
 # All steps involved in copying a table

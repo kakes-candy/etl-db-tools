@@ -11,7 +11,7 @@ def sql_render(template:str, data) -> str:
 
     template = env.get_template(template)
 
-    return template.render(table = data)
+    return template.render(data = data)
 
 """
 Object dat de definitie van een tabel kan opslaan. Bedoeld als interface

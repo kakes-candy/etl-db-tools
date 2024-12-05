@@ -1,12 +1,14 @@
 
 from abc import ABC
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, PackageLoader
 
 
 def sql_render(template:str, data) -> str:
 
+
+
     env = Environment(
-        loader=FileSystemLoader("etl_db_tools/templates")
+        loader=PackageLoader("etl_db_tools", "templates")
     )
 
     template = env.get_template(template)

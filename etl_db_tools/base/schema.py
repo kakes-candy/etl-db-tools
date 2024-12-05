@@ -5,8 +5,6 @@ from jinja2 import Environment, PackageLoader
 
 def sql_render(template:str, data) -> str:
 
-
-
     env = Environment(
         loader=PackageLoader("etl_db_tools", "templates")
     )

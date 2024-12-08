@@ -102,11 +102,14 @@ def create_connection(clean_up_schema):
              PWD = testuser_pw,
              TrustServerCertificate = 'yes'
         )
-        yield cnxn
+
+        with cnxn.connect() as active_cnxn:
+            yield active_cnxn
 
 def test_select_returns_all_rows(create_connection, create_test_data):  
     connection = create_connection
     create_test_data
+
     results = connection.select_data('select * from testing.plaatsen')
 
     assert len(list(results)) == 4

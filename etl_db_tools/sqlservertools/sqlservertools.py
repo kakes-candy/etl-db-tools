@@ -1,6 +1,7 @@
 from etl_db_tools.base.connection import Connection
 from etl_db_tools.base.schema import BaseTable, Column, sql_render
 from collections.abc import Iterator
+from contextlib import contextmanager
 import pyodbc
 import warnings
 
@@ -78,29 +79,41 @@ class SQLserverconnection(Connection):
         final_cnxn = ';'.join(cnxn_ls)
         return final_cnxn
     
+
+    
+    @contextmanager
+    def connect(self):
+        self.connection = pyodbc.connect(self.to_string())
+        self.cursor = self.connection.cursor()
+        try:
+            print('yielding self')
+            yield(self)
+        finally:
+            print('finally closing')
+            if self.cursor is not None:
+                self.cursor.close()    
+                self.cursor = None
+            if self.connection is not None:
+                self.connection.close()
+                self.connection = None
+
     def select_data(self, query: str) -> Iterator[list[dict]]:
 
-        with pyodbc.connect(self.to_string()) as conn:
-            cursor = conn.cursor()
-            cursor.execute(query)
-            columns = [column[0] for column in cursor.description]
-            while True:
-                results = cursor.fetchmany(5000)
-                if not results:
-                    break                
-                for result in results:
-                    yield dict(zip(columns, result))
-                else:
-                    break
-        conn.close()    
+        self.cursor.execute(query)
+        columns = [column[0] for column in self.cursor.description]
+        while True:
+            results = self.cursor.fetchmany(5000)
+            if not results:
+                break                
+            for result in results:
+                yield dict(zip(columns, result))
+            else:
+                break
 
     def execute_sql(self, query):
 
-        with pyodbc.connect(self.to_string()) as conn:
-            cursor = conn.cursor()
-            cursor.execute(query)
-            cursor.commit()
-        conn.close()
+        self.cursor.execute(query)
+        self.cursor.commit()
 
 
     def if_exists(self, table_name):
@@ -160,11 +173,9 @@ class SQLserverconnection(Connection):
             rowlist = [row.get(x) for x in table_obj.column_names()]
             cleaned_data.append(rowlist)        
 
-        with pyodbc.connect(self.to_string()) as conn:
-            cursor = conn.cursor()
-            cursor.fast_executemany = True
-            cursor.executemany(insert_sql, cleaned_data)
-        conn.close()
+        self.cursor.fast_executemany = True
+        self.cursor.executemany(insert_sql, cleaned_data)
+
 
 
     def sql_insert_list(self, table: str | Table, data: list[list]):
@@ -185,12 +196,9 @@ class SQLserverconnection(Connection):
         #render insert statement
         insert_sql = sql_render(template='insert.sql', data = table_obj)
 
-        with pyodbc.connect(self.to_string()) as conn:
-            cursor = conn.cursor()
-            cursor.fast_executemany = True
-            cursor.executemany(insert_sql, data)
-            cursor.commit()
-        conn.close()
+        self.cursor.fast_executemany = True
+        self.cursor.executemany(insert_sql, data)
+        self.cursor.commit()
 
     def list_tables(self, schema: str, startswith: str = None, contains: str = None) -> list[str]:
         data = {'schema': schema,

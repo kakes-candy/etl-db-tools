@@ -86,10 +86,8 @@ class SQLserverconnection(Connection):
         self.connection = pyodbc.connect(self.to_string())
         self.cursor = self.connection.cursor()
         try:
-            print('yielding self')
             yield(self)
         finally:
-            print('finally closing')
             if self.cursor is not None:
                 self.cursor.close()    
                 self.cursor = None
@@ -175,6 +173,7 @@ class SQLserverconnection(Connection):
 
         self.cursor.fast_executemany = True
         self.cursor.executemany(insert_sql, cleaned_data)
+        self.cursor.commit()
 
 
 
@@ -244,4 +243,6 @@ def copy_table(source_connection: Connection
         if i == chunk_length:
             target_connection.sql_insert_dictionary(table, chunk)
             chunk.clear()
-            i=0
+            i=0 
+    if i > 0 and i < chunk_length:
+        target_connection.sql_insert_dictionary(table, chunk)

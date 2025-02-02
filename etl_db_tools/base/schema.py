@@ -43,6 +43,10 @@ class Column(ABC):
                 defaultpart = None if self.default is None else "default " + str(self.default) 
                 sql = ' '.join([x for x in [self.name, self.type, nullpart, defaultpart] if x is not None])
 
+            case 'uniqueidentifier':
+                defaultpart = None if self.default is None else "default " + str(self.default) 
+                sql = ' '.join([x for x in [self.name, self.type, nullpart, defaultpart] if x is not None])
+
             case 'date' | 'datetime' | 'datetime2' | 'smalldatetime':
                 # quote naked date(times)
                 if self.default is None:

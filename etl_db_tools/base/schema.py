@@ -39,7 +39,7 @@ class Column(ABC):
         
     
         match self.type:
-            case 'int' | 'tinyint' | 'bigint':
+            case 'int' | 'tinyint' | 'bigint' | 'bit':
                 defaultpart = None if self.default is None else "default " + str(self.default) 
                 sql = ' '.join([x for x in [self.name, self.type, nullpart, defaultpart] if x is not None])
 

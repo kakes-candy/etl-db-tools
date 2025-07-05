@@ -105,8 +105,6 @@ class SQLserverconnection(Connection):
                 break                
             for result in results:
                 yield dict(zip(columns, result))
-            else:
-                break
 
     def execute_sql(self, query):
 
@@ -219,21 +217,28 @@ def copy_table(source_connection: Connection
                , into:str = None 
                ) -> None: 
 
+    #override name if asked
+    if into is not None:
+        target_name = into
+    else:
+        target_name = table_name
+
+    temp_name = f'{table_name}_temporary'
+
     # Get the table definition
     table = Table.from_connection(source_connection, table_name)
 
-    #override name if asked
-    if into is not None:
-        table.name = into
+    # set the name to temporary name
+    table.name = temp_name
 
     # create the table in the target database, drop if exists
-    target_connection.create_table(table, drop_if_exists=True)
+    target_connection.create_table(table, drop_if_exists=False)
 
     # get the data
     generator = source_connection.select_data(f'select * from {table_name}')
 
 
-    # write data from the generator in chunks
+    # write data from the generator in chunks to the temp table
     chunk = []
     chunk_length = 1000
     i = 0
@@ -246,3 +251,10 @@ def copy_table(source_connection: Connection
             i=0 
     if i > 0 and i < chunk_length:
         target_connection.sql_insert_dictionary(table, chunk)
+
+    # now switch by dropping the old table and renaming the temp table
+    # note: we must remove the schema from the name as it will mess up the sp_rename call 
+    data = {'target_name': target_name.split('.')[-1], 'temp_table_name': temp_name}
+    q = sql_render('finalize_copy.sql', data=data)
+    
+    target_connection.execute_sql(q)

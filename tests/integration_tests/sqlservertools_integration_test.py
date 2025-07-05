@@ -106,6 +106,22 @@ def create_connection(clean_up_schema):
         with cnxn.connect() as active_cnxn:
             yield active_cnxn
 
+@pytest.fixture(scope='function')
+def create_connection_testuser(clean_up_schema):
+        clean_up_schema
+        cnxn = SQLserverconnection(
+             driver = 'ODBC Driver 18 for SQL Server',
+             server = 'localhost',
+             database='TestDB',
+             UID = testuser,
+             PWD = testuser_pw,
+             TrustServerCertificate = 'yes'
+        )
+
+        with cnxn.connect() as active_cnxn:
+            yield active_cnxn
+
+
 def test_select_returns_all_rows(create_connection, create_test_data):  
     connection = create_connection
     create_test_data
@@ -260,9 +276,10 @@ def test_insert_list_only_works_if_all_columns_are_supplied(create_test_data, cr
     clean_up_schema
 
 
-def test_can_copy_table(create_connection):
+def test_can_copy_table(create_connection, create_connection_testuser):
 
     cnxn = create_connection
+    cnxn2 = create_connection_testuser
 
     id = Column('id', 'int', False)
     datum = Column('datum', 'date', True)
@@ -282,7 +299,7 @@ def test_can_copy_table(create_connection):
 
     cnxn.sql_insert_dictionary(table = 'testing.original', data=ls)
 
-    copy_table(cnxn, 'testing.original', cnxn, into= 'testing.copy')
+    copy_table(cnxn, 'testing.original', cnxn2, into= 'testing.copy')
 
     data_in_copy = list(cnxn.select_data('select count(1) as N, sum(amount) as total from testing.copy'))
     data_in_original = list(cnxn.select_data('select count(1) as N, sum(amount) as total from testing.original'))

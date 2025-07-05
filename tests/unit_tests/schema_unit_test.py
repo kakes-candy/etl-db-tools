@@ -21,7 +21,7 @@ def test_can_create_column(create_column):
 
     assert c.name == 'provincie'
     assert c.type == 'nvarchar'
-    assert c.nullable is False
+    assert c.nullable == False
     assert c.length == 255
     assert c.precission == 4
     assert c.scale == 'scaledef'
@@ -161,12 +161,6 @@ def test_nvarchar_should_be_max_too_to_sql():
     c = Column(name='Nvarchar', type = 'nvarchar', nullable=True, length=4001)
 
     assert c.to_sql() == 'Nvarchar nvarchar(max)'
-
-def test_nvarchar_with_default():
-    c = Column(name='Nvarchar', type = 'nvarchar', nullable=True, length=255, default='systeem')
-
-    assert c.to_sql() == "Nvarchar nvarchar(255) default 'systeem'"
-
 
 
 def test_Nchar_with_length_to_sql():

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "etl-db-tools"
-version = "0.1.1a1"
+version = "0.2.0"
 description = ""
 authors = ["Niels <niels.kakes@gmail.com>"]
 readme = "README.md"

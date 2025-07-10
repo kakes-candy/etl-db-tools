@@ -217,7 +217,7 @@ def copy_table(
     else:
         target_name = table_name
 
-    temp_name = f"{table_name}_temporary"
+    temp_name = f"{target_name}_temporary"
 
     # Get the table definition
     table = Table.from_connection(source_connection, table_name)

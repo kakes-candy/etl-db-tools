@@ -25,7 +25,7 @@ def clean_up_schema():
     inner join sys.schemas as sc
     on s.schema_id = sc.schema_id
     where 1=1
-    and sc.name = 'testing'
+    and sc.name like 'testing%'
     and s.[type] = 'U'
     order by s.object_id"""
 
@@ -66,6 +66,45 @@ def create_test_data(clean_up_schema):
         )
 
     cnxn.close()
+
+
+@pytest.fixture(scope="function")
+def create_test_data_long(clean_up_schema):
+    clean_up_schema
+
+    start = datetime.datetime(2020, 1, 1)
+
+    ls = []
+    for i in range(5, 5010):
+        datum = start + datetime.timedelta(days=i)
+        d = (
+            i,
+            datum.strftime("%Y-%m-%d"),
+            (i * 10) + (i * 0.35),
+        )
+        ls.append(d)
+
+
+    with pyodbc.connect(cs) as cnxn:
+        cursor = cnxn.cursor()
+
+        cursor.execute("""
+            use TestDB;
+            drop table if exists testing.original;
+            create table testing.original (id bigint, datum date, amount decimal(15,2));
+            """)
+        cursor.commit()
+        
+        cursor.fast_executemany = True
+        cursor.executemany(
+            """ insert into testing.original (id, datum, amount)
+            values(?,?,?)""",
+            ls
+        )
+
+    cnxn.close()
+
+
 
 
 @pytest.fixture(scope="function")
@@ -307,40 +346,10 @@ def test_insert_list_only_works_if_all_columns_are_supplied(
     clean_up_schema
 
 
-def test_can_copy_table(create_connection, create_connection_testuser):
+def test_can_copy_table(create_connection, create_connection_testuser, create_test_data_long):
     cnxn = create_connection
     cnxn2 = create_connection_testuser
-
-    id = Column("id", "int", False)
-    datum = Column("datum", "date", True)
-    amount = Column(
-        name="amount", type="decimal", nullable=True, scale=2, precission=10
-    )
-
-    original = Table(
-        "testing.original",
-        columns=[
-            id,
-            datum,
-            amount,
-        ],
-    )
-
-    cnxn.create_table(original, True)
-
-    start = datetime.datetime(2020, 1, 1)
-
-    ls = []
-    for i in range(5, 2005):
-        datum = start + datetime.timedelta(days=i)
-        d = {
-            "id": i,
-            "datum": datum.strftime("%Y-%m-%d"),
-            "amount": (i * 100) + (i * 0.35),
-        }
-        ls.append(d)
-
-    cnxn.sql_insert_dictionary(table="testing.original", data=ls)
+    create_test_data_long
 
     copy_table(cnxn, "testing.original", cnxn2, into="testing.copy")
 
@@ -355,6 +364,27 @@ def test_can_copy_table(create_connection, create_connection_testuser):
 
     assert data_in_copy[0].get("N") == data_in_original[0].get("N")
     assert data_in_copy[0].get("total") == data_in_original[0].get("total")
+
+
+def test_can_copy_table_into_another(create_connection, create_connection_testuser, create_test_data_long):
+    cnxn = create_connection
+    cnxn2 = create_connection_testuser
+    create_test_data_long
+
+    copy_table(cnxn, "testing.original", cnxn2, into="testing_twee.copy")
+
+    data_in_copy = list(
+        cnxn.select_data("select count(1) as N, sum(amount) as total from testing_twee.copy")
+    )
+    data_in_original = list(
+        cnxn.select_data(
+            "select count(1) as N, sum(amount) as total from testing.original"
+        )
+    )
+
+    assert data_in_copy[0].get("N") == data_in_original[0].get("N")
+    assert data_in_copy[0].get("total") == data_in_original[0].get("total")
+
 
 
 def test_list_tables_finds_tables(clean_up_schema, create_connection):

@@ -38,7 +38,11 @@ class Table(BaseTable):
                 ,c.CHARACTER_MAXIMUM_LENGTH
                 ,c.NUMERIC_PRECISION
                 ,c.NUMERIC_SCALE
-                ,c.COLUMN_DEFAULT
+                ,case 
+                    when c.COLUMN_DEFAULT = '(getdate())' then 'getdate()'
+                    when left(c.COLUMN_DEFAULT, 3) = '(N''' then substring(c.COLUMN_DEFAULT, 4, len(c.COLUMN_DEFAULT)-5) 
+                    else substring(c.COLUMN_DEFAULT, 3, len(c.COLUMN_DEFAULT)-4) 
+                    end as COLUMN_DEFAULT
                 from information_schema.columns as c 
                 where CONCAT(c.TABLE_SCHEMA, '.', c.table_name) = '{table_name}'
                 order by c.ORDINAL_POSITION"""
@@ -54,9 +58,9 @@ class Table(BaseTable):
                 length=column.get("CHARACTER_MAXIMUM_LENGTH"),
                 precission=column.get("NUMERIC_PRECISION"),
                 scale=column.get("NUMERIC_SCALE"),
-                default=column.get("COLUMN_DEFAULT", "DeNada"),
+                default=column.get("COLUMN_DEFAULT"),
             )
-
+            print(c)
             columns.append(c)
 
         # make instance from output column definition

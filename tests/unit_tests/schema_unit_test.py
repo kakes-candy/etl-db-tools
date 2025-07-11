@@ -93,12 +93,12 @@ def test_can_only_add_column_instance():
 # Integers
 def test_int_to_sql():
     c = Column(name="integer", type="int", nullable=True, default=0)
-    assert c.to_sql() == "integer int default 0"
+    assert c.to_sql() == "integer int default ((0))"
 
 
 def test_int_not_nullable_to_sql():
     c = Column(name="integer", type="int", nullable=False, default=0)
-    assert c.to_sql() == "integer int not null default 0"
+    assert c.to_sql() == "integer int not null default ((0))"
 
 
 def test_int_without_default_to_sql():
@@ -108,12 +108,12 @@ def test_int_without_default_to_sql():
 
 def test_tinyint_to_sql():
     c = Column(name="integer", type="tinyint", nullable=True, default=0)
-    assert c.to_sql() == "integer tinyint default 0"
+    assert c.to_sql() == "integer tinyint default ((0))"
 
 
 def test_bigint_to_sql():
     c = Column(name="integer", type="bigint", nullable=True, default=0)
-    assert c.to_sql() == "integer bigint default 0"
+    assert c.to_sql() == "integer bigint default ((0))"
 
 
 # date family
@@ -153,6 +153,10 @@ def test_datetime_small_to_sql():
     c = Column(name="datumtijd_klein", type="smalldatetime", nullable=True, length=0)
     assert c.to_sql() == "datumtijd_klein smalldatetime"
 
+def test_datetime_with_getdate_to_sql():
+    c = Column(name="datumtijd_currdate", type="smalldatetime", nullable=True, length=0, default='getdate()')
+    assert c.to_sql() == "datumtijd_currdate smalldatetime default getdate()"
+
 
 def test_decimal_five_two_to_sql():
     c = Column(name="breuk", type="decimal", nullable=True, precission=5, scale=2)
@@ -168,7 +172,7 @@ def test_decimal_five_two_default_to_sql():
     c = Column(
         name="breuk", type="decimal", nullable=True, precission=5, scale=2, default=0.0
     )
-    assert c.to_sql() == "breuk decimal(5,2) default 0.0"
+    assert c.to_sql() == "breuk decimal(5,2) default ((0.0))"
 
 
 # Float
@@ -177,13 +181,13 @@ def test_decimal_float_with_precission_to_sql():
         name="Floatingpoint", type="float", nullable=True, precission=5, default=0.0
     )
 
-    assert c.to_sql() == "Floatingpoint float(5) default 0.0"
+    assert c.to_sql() == "Floatingpoint float(5) default ((0.0))"
 
 
 def test_decimal_float_without_precission_to_sql():
     c = Column(name="Floatingpoint", type="float", nullable=True, default=0.0)
 
-    assert c.to_sql() == "Floatingpoint float default 0.0"
+    assert c.to_sql() == "Floatingpoint float default ((0.0))"
 
 
 # Character
@@ -197,6 +201,11 @@ def test_nvarchar_should_be_max_to_sql():
     c = Column(name="Nvarchar", type="nvarchar", nullable=True, length=-1)
 
     assert c.to_sql() == "Nvarchar nvarchar(max)"
+
+def test_nvarchar_with_default_sql():
+    c = Column(name="Nvarchar", type="nvarchar", nullable=True, length=-1, default = 'onbekend')
+
+    assert c.to_sql() == "Nvarchar nvarchar(max) default ('onbekend')"
 
 
 def test_nvarchar_should_be_max_too_to_sql():

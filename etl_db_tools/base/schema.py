@@ -41,7 +41,7 @@ class Column(ABC):
         match self.type:
             case "int" | "tinyint" | "bigint" | "bit":
                 defaultpart = (
-                    None if self.default is None else "default " + str(self.default)
+                    None if self.default is None else f"default (({str(self.default)}))"
                 )
                 sql = " ".join(
                     [
@@ -53,7 +53,7 @@ class Column(ABC):
 
             case "uniqueidentifier":
                 defaultpart = (
-                    None if self.default is None else "default " + str(self.default)
+                    None if self.default is None else f"default '{str(self.default)}'"
                 )
                 sql = " ".join(
                     [
@@ -71,7 +71,7 @@ class Column(ABC):
                     defaultpart = f"default '{self.default}'"
                 else:
                     defaultpart = (
-                        None if self.default is None else "default " + str(self.default)
+                        None if self.default is None else f"default {str(self.default)}"
                     )
                 sql = " ".join(
                     [
@@ -83,7 +83,7 @@ class Column(ABC):
 
             case "decimal":
                 defaultpart = (
-                    None if self.default is None else "default " + str(self.default)
+                    None if self.default is None else f"default (({str(self.default)}))"
                 )
                 type_complete = f"{self.type}({self.precission},{self.scale})"
                 sql = " ".join(
@@ -96,7 +96,7 @@ class Column(ABC):
 
             case "float":
                 defaultpart = (
-                    None if self.default is None else "default " + str(self.default)
+                    None if self.default is None else f"default (({str(self.default)}))"
                 )
                 if self.precission is not None:
                     type_complete = f"float({self.precission})"
@@ -112,7 +112,7 @@ class Column(ABC):
 
             case "nvarchar" | "nchar" | "char" | "varchar":
                 defaultpart = (
-                    None if self.default is None else f"default '{self.default}'"
+                    None if self.default is None else f"default ('{self.default}')"
                 )
                 if self.length == -1 or self.length > 4000:
                     type_complete = f"{self.type}(max)"
@@ -135,7 +135,7 @@ class Column(ABC):
         pass
 
     def __str__(self) -> str:
-        return f'column: name: {self.name}, type: {self.type}, length: {self.length or ''}, precission: {self.precission or ''}, scale: {self.scale or ''}, default: {self.default or ''}'
+        return f"column: name: {self.name}, type: {self.type}, length: {self.length or ''}, precission: {self.precission or ''}, scale: {self.scale or ''}, default: {self.default or ''}"
 
 
 class BaseTable(ABC):

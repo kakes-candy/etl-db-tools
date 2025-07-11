@@ -117,12 +117,12 @@ def create_test_data_datatypes(clean_up_schema):
             drop table if exists dbo.SecondTable; 
             create table SecondTable (
             tabel_id int not null,
-            nummer int default(1),
-            [float] float(25) default((1.2)),
-            [decimal] decimal(5,2) default((1.5)), 
+            nummer int default ((1)),
+            [float] float(25) default ((1.2)),
+            [decimal] decimal(5,2) default ((1.5)), 
             lange_nvarchar nvarchar(max), 
             normale_nvarchar nvarchar(255) default ('onbekend'),
-            datum date default (getdate()), 
+            datum date default getdate(), 
             datumtijd datetime default CURRENT_TIMESTAMP, 
             datumtijd_twee datetime2)""")
         cursor.commit()
@@ -238,7 +238,7 @@ def test_columns_contain_all(
     assert table_object.columns[5].name == "normale_nvarchar"
     assert table_object.columns[5].type == "nvarchar"
     assert table_object.columns[5].length == 255
-    assert table_object.columns[5].default == "('onbekend')"
+    assert table_object.columns[5].default == 'onbekend'
 
     clean_up_schema
 
@@ -580,3 +580,21 @@ def test_list_tables_finds_tables_with_no_match_schema(create_connection):
 
     lijst = cnxn.list_tables("barking")
     assert len(lijst) == 0
+
+def test_from_connection_creates_correct_colums(create_connection, create_test_data_datatypes):
+    
+    cnxn = create_connection
+    create_test_data_datatypes
+
+    tbl = Table.from_connection(cnxn, 'dbo.SecondTable')
+
+    assert tbl.columns[0].to_sql() == 'tabel_id int not null'
+    assert tbl.columns[1].to_sql() == 'nummer int default ((1))'
+    assert tbl.columns[2].to_sql() == 'float float(53) default ((1.2))'
+    assert tbl.columns[3].to_sql() == 'decimal decimal(5,2) default ((1.5))'
+    assert tbl.columns[4].to_sql() == "lange_nvarchar nvarchar(max)"
+    assert tbl.columns[5].to_sql() == "normale_nvarchar nvarchar(255) default ('onbekend')"
+    assert tbl.columns[6].to_sql() == 'datum date default getdate()'
+    assert tbl.columns[7].to_sql() == 'datumtijd datetime default getdate()'
+    assert tbl.columns[8].to_sql() == 'datumtijd_twee datetime2'    
+

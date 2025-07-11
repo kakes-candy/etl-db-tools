@@ -1,0 +1,54 @@
+Metadata-Version: 2.4
+Name: etl-db-tools
+Version: 0.2.1
+Summary: tools for moving data
+Author-email: Niels <niels.kakes@gmail.com>
+Requires-Python: <4.0,>=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: pyodbc<6.0.0,>=5.2.0
+Requires-Dist: tomli<3.0.0,>=2.1.0
+Requires-Dist: jinja2<4.0.0,>=3.1.4
+
+# Etl-db-Tools
+
+This package provides some convenience functions for interacting with databases. For instance executing queries, copying a table etc. It uses pyodbc as a the backend. 
+
+### install
+```
+pip install etl-db-tools
+```
+
+## Getting started
+
+#### Set up a connection with a sql server database
+
+``` python
+from etl_db_tools.sqlservertools import sqlservertools as sql
+
+cnxn = sql.SQLserverconnection(driver='ODBC Driver 18 for SQL Server', 
+                            server='localhost_or_else', 
+                            database='TestDB', 
+                            uid = 'your_username',
+                            pwd = 'your_password', 
+                            TrustServerCertificate = 'yes')
+
+```
+#### Select data from an active connection
+You can use the connect method as a context manager.
+
+``` python
+# create an active connection as context manager
+with cnxn.connect() as active_cnxn:
+    query = """select id, name from dbo.myTable """
+    data = cnxn.select_data(query)
+```
+
+Select_data() yields a generator. This will return list of dictionaries containing the query results.
+
+#### use the data
+
+``` python
+for row in data:
+    print(f"id = {row['id']}")
+```
+

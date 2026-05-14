@@ -1,6 +1,8 @@
 from abc import ABC
 from jinja2 import Environment, PackageLoader
+import logging
 
+logger = logging.getLogger(__name__)
 
 def sql_render(template: str, data) -> str:
     env = Environment(loader=PackageLoader("etl_db_tools", "templates"))
@@ -129,6 +131,8 @@ class Column(ABC):
             case _:
                 raise ValueError(f"Data type not implemented: {self.type}")
 
+        logger.debug()
+
         return sql.strip()
 
     def quoted_name(self):
@@ -150,7 +154,7 @@ class BaseTable(ABC):
         return [x.name for x in self.columns]
 
     def add_column(self, column: Column) -> None:
-        print(f"this column is an Column instance {isinstance(column, Column)}")
+        logger.debug("this column is an Column instance: %s ", isinstance(column, Column))
         if isinstance(column, Column):
             self.columns.append(column)
         else:

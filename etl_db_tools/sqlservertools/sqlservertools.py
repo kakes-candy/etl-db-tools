@@ -4,7 +4,9 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 import pyodbc
 import warnings
+import logging
 
+logger = logging.getLogger(__name__)
 
 class Column(Column):
     def __init__(
@@ -47,6 +49,8 @@ class Table(BaseTable):
                 where CONCAT(c.TABLE_SCHEMA, '.', c.table_name) = '{table_name}'
                 order by c.ORDINAL_POSITION"""
 
+        logger.debug("query is: %s", querystring)
+
         res_gen = connection.select_data(querystring)
 
         columns = []
@@ -60,7 +64,7 @@ class Table(BaseTable):
                 scale=column.get("NUMERIC_SCALE"),
                 default=column.get("COLUMN_DEFAULT"),
             )
-            print(c)
+            logger.debug('Column def: %s', c)
             columns.append(c)
 
         # make instance from output column definition

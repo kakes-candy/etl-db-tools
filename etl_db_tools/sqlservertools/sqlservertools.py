@@ -254,6 +254,12 @@ class AzureSqlServerConnection(SQLserverconnection):
                 self.connection = None
 
 
+def _check_table_name(name: str) -> None:
+    parts = name.split(".")
+    if len(parts) != 2 or not all(parts):
+        raise ValueError(f"table name must be 'schema.table', got '{name}'")
+
+
 # All steps involved in copying a table
 def copy_table(
     source_connection: Connection,
@@ -267,6 +273,9 @@ def copy_table(
     else:
         target_name = table_name
 
+    _check_table_name(table_name)
+    _check_table_name(target_name)
+
     temp_name = f"{target_name}_temporary"
 
     # Get the table definition
@@ -279,22 +288,30 @@ def copy_table(
     target_connection.create_table(table, drop_if_exists=True)
 
     try:
-        # get the data
-        generator = source_connection.select_data(f"select * from {table_name}")
+        if source_connection is target_connection:
+            # one connection can't read and insert at the same time, so copy
+            # the data inside the database instead
+            cols = ", ".join(c.quoted_name() for c in table.columns)
+            target_connection.execute_sql(
+                f"insert into {temp_name} ({cols}) select {cols} from {table_name}"
+            )
+        else:
+            # get the data
+            generator = source_connection.select_data(f"select * from {table_name}")
 
-        # write data from the generator in chunks to the temp table
-        chunk = []
-        chunk_length = 1000
-        i = 0
-        for row in generator:
-            chunk.append(row)
-            i += 1
-            if i == chunk_length:
+            # write data from the generator in chunks to the temp table
+            chunk = []
+            chunk_length = 1000
+            i = 0
+            for row in generator:
+                chunk.append(row)
+                i += 1
+                if i == chunk_length:
+                    target_connection.sql_insert_dictionary(table, chunk)
+                    chunk.clear()
+                    i = 0
+            if i > 0 and i < chunk_length:
                 target_connection.sql_insert_dictionary(table, chunk)
-                chunk.clear()
-                i = 0
-        if i > 0 and i < chunk_length:
-            target_connection.sql_insert_dictionary(table, chunk)
 
         # now switch by dropping the old table and renaming the temp table
         # note: we must remove the schema from the name as it will mess up the sp_rename call

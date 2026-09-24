@@ -386,6 +386,26 @@ def test_can_copy_table_into_another(create_connection, create_connection_testus
     assert data_in_copy[0].get("total") == data_in_original[0].get("total")
 
 
+def test_can_copy_table_with_same_connection(create_connection, create_test_data_long):
+    cnxn = create_connection
+    create_test_data_long
+
+    copy_table(cnxn, "testing.original", cnxn, into="testing.copy")
+
+    data_in_copy = list(
+        cnxn.select_data("select count(1) as N, sum(amount) as total from testing.copy")
+    )
+    data_in_original = list(
+        cnxn.select_data(
+            "select count(1) as N, sum(amount) as total from testing.original"
+        )
+    )
+
+    assert data_in_copy[0].get("N") == data_in_original[0].get("N")
+    assert data_in_copy[0].get("total") == data_in_original[0].get("total")
+    assert cnxn.if_exists("testing.copy_temporary") is False
+
+
 def test_copy_table_replaces_leftover_temporary_table(create_connection, create_connection_testuser, create_test_data_long):
     cnxn = create_connection
     cnxn2 = create_connection_testuser

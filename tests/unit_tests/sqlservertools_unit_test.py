@@ -3,6 +3,7 @@ from etl_db_tools.sqlservertools.sqlservertools import (
     SQLserverconnection,
     Table,
     Column,
+    copy_table,
 )
 
 
@@ -58,3 +59,14 @@ def test_insert_dictionary_checks_columns():
 
     with pytest.raises(KeyError):
         cnxn.sql_insert_dictionary(table=t, data=data)
+
+
+@pytest.mark.parametrize("table_name", ["foo", "db.schema.foo", ".foo", "schema."])
+def test_copy_table_rejects_table_name_without_schema(table_name):
+    with pytest.raises(ValueError, match="must be 'schema.table'"):
+        copy_table(None, table_name, None)
+
+
+def test_copy_table_rejects_into_without_schema():
+    with pytest.raises(ValueError, match="must be 'schema.table'"):
+        copy_table(None, "testing.original", None, into="foo")

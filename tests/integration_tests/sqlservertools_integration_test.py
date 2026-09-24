@@ -716,3 +716,13 @@ def test_copy_table_keeps_column_defaults(create_connection, create_connection_t
     defaults_copy = list(cnxn.select_data(query.format("defaults_copy")))
 
     assert defaults_copy == defaults_original
+
+
+def test_copy_table_raises_if_source_table_not_found(create_connection, create_connection_testuser):
+    cnxn = create_connection
+    cnxn2 = create_connection_testuser
+
+    with pytest.raises(ValueError, match="not found"):
+        copy_table(cnxn, "testing.bestaat_niet", cnxn2, into="testing.copy")
+
+    assert cnxn.if_exists("testing.copy_temporary") is False

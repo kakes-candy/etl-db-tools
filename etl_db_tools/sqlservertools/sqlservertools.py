@@ -94,6 +94,11 @@ class Table(BaseTable):
             logger.debug('Column def: %s', c)
             columns.append(c)
 
+        if not columns:
+            raise ValueError(
+                f"table '{table_name}' not found, or the user has no permission to see it"
+            )
+
         # make instance from output column definition
         return cls(name=table_name, columns=columns)
 

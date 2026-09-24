@@ -118,3 +118,13 @@ def test_expression_default_is_not_quoted():
 def test_quote_in_string_default_is_escaped():
     c = Column(name="naam", type="nvarchar", nullable=True, length=50, default="it's")
     assert c.to_sql() == "naam nvarchar(50) default ('it''s')"
+
+
+class EmptyConnection:
+    def select_data(self, query):
+        return iter([])
+
+
+def test_from_connection_raises_if_table_not_found():
+    with pytest.raises(ValueError, match="table 'testing.x' not found"):
+        Table.from_connection(EmptyConnection(), "testing.x")

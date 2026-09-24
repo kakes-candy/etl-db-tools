@@ -685,3 +685,34 @@ def test_from_connection_creates_correct_colums(create_connection, create_test_d
     assert tbl.columns[7].to_sql() == 'datumtijd datetime default getdate()'
     assert tbl.columns[8].to_sql() == 'datumtijd_twee datetime2'    
 
+
+
+def test_copy_table_keeps_column_defaults(create_connection, create_connection_testuser):
+    cnxn = create_connection
+    cnxn2 = create_connection_testuser
+
+    cnxn.execute_sql("""
+        drop table if exists testing.defaults;
+        create table testing.defaults (
+            id uniqueidentifier default newid(),
+            nummer int default ((-1)),
+            breuk decimal(5,2) default ((1.5)),
+            tekst nvarchar(50) default ('it''s'),
+            leeg varchar(10) default (''),
+            datum date default ('2020-01-01'),
+            tijd datetime2 default sysdatetime(),
+            morgen datetime default getdate()+(1),
+            utc datetime default getutcdate()
+        )""")
+
+    copy_table(cnxn, "testing.defaults", cnxn2, into="testing.defaults_copy")
+
+    query = """
+        select c.COLUMN_NAME, c.COLUMN_DEFAULT
+        from information_schema.columns as c
+        where c.TABLE_SCHEMA = 'testing' and c.TABLE_NAME = '{}'
+        order by c.ORDINAL_POSITION"""
+    defaults_original = list(cnxn.select_data(query.format("defaults")))
+    defaults_copy = list(cnxn.select_data(query.format("defaults_copy")))
+
+    assert defaults_copy == defaults_original

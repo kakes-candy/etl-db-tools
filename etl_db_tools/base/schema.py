@@ -12,6 +12,10 @@ def sql_render(template: str, data) -> str:
     return template.render(data=data)
 
 
+class SqlExpression(str):
+    """A default that is a SQL expression, such as newid(), and must not be quoted."""
+
+
 """
 Object dat de definitie van een tabel kan opslaan. Bedoeld als interface
 tussen verschillende bronnen. 
@@ -40,9 +44,16 @@ class Column(ABC):
     def to_sql(self) -> str:
         nullpart = None if self.nullable else "not null"
 
+        # expressions are written as they are, for every type
+        expressionpart = (
+            f"default {self.default}" if isinstance(self.default, SqlExpression) else None
+        )
+        # quotes inside string values must be doubled
+        escaped = None if self.default is None else str(self.default).replace("'", "''")
+
         match self.type:
             case "int" | "tinyint" | "bigint" | "bit":
-                defaultpart = (
+                defaultpart = expressionpart or (
                     None if self.default is None else f"default (({str(self.default)}))"
                 )
                 sql = " ".join(
@@ -54,8 +65,8 @@ class Column(ABC):
                 )
 
             case "uniqueidentifier":
-                defaultpart = (
-                    None if self.default is None else f"default '{str(self.default)}'"
+                defaultpart = expressionpart or (
+                    None if self.default is None else f"default '{escaped}'"
                 )
                 sql = " ".join(
                     [
@@ -69,8 +80,10 @@ class Column(ABC):
                 # quote naked date(times)
                 if self.default is None:
                     defaultpart = None
+                elif expressionpart is not None:
+                    defaultpart = expressionpart
                 elif self.default not in ["getdate()"]:
-                    defaultpart = f"default '{self.default}'"
+                    defaultpart = f"default '{escaped}'"
                 else:
                     defaultpart = (
                         None if self.default is None else f"default {str(self.default)}"
@@ -84,7 +97,7 @@ class Column(ABC):
                 )
 
             case "decimal":
-                defaultpart = (
+                defaultpart = expressionpart or (
                     None if self.default is None else f"default (({str(self.default)}))"
                 )
                 type_complete = f"{self.type}({self.precission},{self.scale})"
@@ -97,7 +110,7 @@ class Column(ABC):
                 )
 
             case "float":
-                defaultpart = (
+                defaultpart = expressionpart or (
                     None if self.default is None else f"default (({str(self.default)}))"
                 )
                 if self.precission is not None:
@@ -113,8 +126,8 @@ class Column(ABC):
                 )
 
             case "nvarchar" | "nchar" | "char" | "varchar":
-                defaultpart = (
-                    None if self.default is None else f"default ('{self.default}')"
+                defaultpart = expressionpart or (
+                    None if self.default is None else f"default ('{escaped}')"
                 )
                 if self.length == -1 or self.length > 4000:
                     type_complete = f"{self.type}(max)"

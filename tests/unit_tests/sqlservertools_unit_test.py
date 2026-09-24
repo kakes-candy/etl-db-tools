@@ -4,7 +4,9 @@ from etl_db_tools.sqlservertools.sqlservertools import (
     Table,
     Column,
     copy_table,
+    _parse_default,
 )
+from etl_db_tools.base.schema import SqlExpression
 
 
 def test_generate_simple_string():
@@ -70,3 +72,49 @@ def test_copy_table_rejects_table_name_without_schema(table_name):
 def test_copy_table_rejects_into_without_schema():
     with pytest.raises(ValueError, match="must be 'schema.table'"):
         copy_table(None, "testing.original", None, into="foo")
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        (None, None),
+        ("((0))", "0"),
+        ("((-1))", "-1"),
+        ("((1.5))", "1.5"),
+        ("('abc')", "abc"),
+        ("(N'abc')", "abc"),
+        ("('')", ""),
+        ("('it''s')", "it's"),
+        ("('2020-01-01')", "2020-01-01"),
+    ],
+)
+def test_parse_default_returns_value(raw, expected):
+    parsed = _parse_default(raw)
+    assert parsed == expected
+    assert not isinstance(parsed, SqlExpression)
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("(getdate())", "getdate()"),
+        ("(newid())", "newid()"),
+        ("(sysdatetime())", "sysdatetime()"),
+        ("(getdate()+(1))", "getdate()+(1)"),
+        ("(CONVERT([bit],(0)))", "CONVERT([bit],(0))"),
+    ],
+)
+def test_parse_default_returns_expression(raw, expected):
+    parsed = _parse_default(raw)
+    assert parsed == expected
+    assert isinstance(parsed, SqlExpression)
+
+
+def test_expression_default_is_not_quoted():
+    c = Column(name="id", type="uniqueidentifier", nullable=False, default=SqlExpression("newid()"))
+    assert c.to_sql() == "id uniqueidentifier not null default newid()"
+
+
+def test_quote_in_string_default_is_escaped():
+    c = Column(name="naam", type="nvarchar", nullable=True, length=50, default="it's")
+    assert c.to_sql() == "naam nvarchar(50) default ('it''s')"

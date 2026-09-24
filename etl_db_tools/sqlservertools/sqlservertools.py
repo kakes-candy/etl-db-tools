@@ -1,5 +1,5 @@
 from etl_db_tools.base.connection import Connection
-from etl_db_tools.base.schema import BaseTable, Column, sql_render
+from etl_db_tools.base.schema import BaseTable, Column, SqlExpression, sql_render
 from collections.abc import Iterator
 from contextlib import contextmanager
 import pyodbc
@@ -7,8 +7,37 @@ import warnings
 import logging
 from azure.identity import AzureCliCredential
 import struct
+import re
 
 logger = logging.getLogger(__name__)
+
+
+def _strip_outer_parens(text: str) -> str:
+    # remove brackets around the whole text, but not in (1)+(2)
+    while text.startswith("(") and text.endswith(")"):
+        depth = 0
+        for i, char in enumerate(text):
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+            if depth == 0 and i < len(text) - 1:
+                return text
+        text = text[1:-1]
+    return text
+
+
+def _parse_default(raw: str | None):
+    """Turn a default as SQL Server stores it, like ((0)) or (newid()), into a value or expression."""
+    if raw is None:
+        return None
+    text = _strip_outer_parens(raw)
+    string_literal = re.fullmatch(r"N?'((?:[^']|'')*)'", text)
+    if string_literal:
+        return string_literal.group(1).replace("''", "'")
+    if re.fullmatch(r"-?\d+(\.\d+)?", text):
+        return text
+    return SqlExpression(text)
 
 class Column(Column):
     def __init__(
@@ -42,11 +71,7 @@ class Table(BaseTable):
                 ,c.CHARACTER_MAXIMUM_LENGTH
                 ,c.NUMERIC_PRECISION
                 ,c.NUMERIC_SCALE
-                ,case 
-                    when c.COLUMN_DEFAULT = '(getdate())' then 'getdate()'
-                    when left(c.COLUMN_DEFAULT, 3) = '(N''' then substring(c.COLUMN_DEFAULT, 4, len(c.COLUMN_DEFAULT)-5) 
-                    else substring(c.COLUMN_DEFAULT, 3, len(c.COLUMN_DEFAULT)-4) 
-                    end as COLUMN_DEFAULT
+                ,c.COLUMN_DEFAULT
                 from information_schema.columns as c 
                 where CONCAT(c.TABLE_SCHEMA, '.', c.table_name) = '{table_name}'
                 order by c.ORDINAL_POSITION"""
@@ -64,7 +89,7 @@ class Table(BaseTable):
                 length=column.get("CHARACTER_MAXIMUM_LENGTH"),
                 precission=column.get("NUMERIC_PRECISION"),
                 scale=column.get("NUMERIC_SCALE"),
-                default=column.get("COLUMN_DEFAULT"),
+                default=_parse_default(column.get("COLUMN_DEFAULT")),
             )
             logger.debug('Column def: %s', c)
             columns.append(c)

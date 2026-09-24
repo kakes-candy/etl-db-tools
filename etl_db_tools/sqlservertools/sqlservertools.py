@@ -276,28 +276,38 @@ def copy_table(
     table.name = temp_name
 
     # create the table in the target database, drop if exists
-    target_connection.create_table(table, drop_if_exists=False)
+    target_connection.create_table(table, drop_if_exists=True)
 
-    # get the data
-    generator = source_connection.select_data(f"select * from {table_name}")
+    try:
+        # get the data
+        generator = source_connection.select_data(f"select * from {table_name}")
 
-    # write data from the generator in chunks to the temp table
-    chunk = []
-    chunk_length = 1000
-    i = 0
-    for row in generator:
-        chunk.append(row)
-        i += 1
-        if i == chunk_length:
+        # write data from the generator in chunks to the temp table
+        chunk = []
+        chunk_length = 1000
+        i = 0
+        for row in generator:
+            chunk.append(row)
+            i += 1
+            if i == chunk_length:
+                target_connection.sql_insert_dictionary(table, chunk)
+                chunk.clear()
+                i = 0
+        if i > 0 and i < chunk_length:
             target_connection.sql_insert_dictionary(table, chunk)
-            chunk.clear()
-            i = 0
-    if i > 0 and i < chunk_length:
-        target_connection.sql_insert_dictionary(table, chunk)
 
-    # now switch by dropping the old table and renaming the temp table
-    # note: we must remove the schema from the name as it will mess up the sp_rename call
-    data = {"target_name": target_name.split(".")[-1], "target_schema": target_name.split(".")[0],   "temp_table_name": temp_name}
-    q = sql_render("finalize_copy.sql", data=data)
+        # now switch by dropping the old table and renaming the temp table
+        # note: we must remove the schema from the name as it will mess up the sp_rename call
+        data = {"target_name": target_name.split(".")[-1], "target_schema": target_name.split(".")[0],   "temp_table_name": temp_name}
+        q = sql_render("finalize_copy.sql", data=data)
 
-    target_connection.execute_sql(q)
+        target_connection.execute_sql(q)
+    except Exception:
+        # roll back first, so a half-finished finalize (target dropped, rename failed)
+        # is undone instead of committed by the cleanup below
+        try:
+            target_connection.cursor.rollback()
+            target_connection.drop_table(temp_name)
+        except Exception:
+            logger.exception("could not drop temporary table %s", temp_name)
+        raise

@@ -310,7 +310,6 @@ def test_can_insert_dict_into_table(
     assert len(list(rijen)) == 6
     clean_up_schema
 
-
 def test_can_insert_list_into_table(
     create_test_data, create_connection, clean_up_schema
 ):
@@ -387,6 +386,70 @@ def test_can_copy_table_into_another(create_connection, create_connection_testus
     assert data_in_copy[0].get("total") == data_in_original[0].get("total")
 
 
+def test_copy_table_replaces_leftover_temporary_table(create_connection, create_connection_testuser, create_test_data_long):
+    cnxn = create_connection
+    cnxn2 = create_connection_testuser
+    create_test_data_long
+
+    # leftover from an earlier copy that failed halfway
+    cnxn2.execute_sql(
+        "drop table if exists testing.copy_temporary; create table testing.copy_temporary (id bigint, datum date, amount decimal(15,2))"
+    )
+    cnxn2.execute_sql(
+        "insert into testing.copy_temporary (id, datum, amount) values (1, '2020-01-01', 99.99), (2, '2020-01-02', 99.99)"
+    )
+
+    copy_table(cnxn, "testing.original", cnxn2, into="testing.copy")
+
+    data_in_copy = list(
+        cnxn.select_data("select count(1) as N, sum(amount) as total from testing.copy")
+    )
+    data_in_original = list(
+        cnxn.select_data(
+            "select count(1) as N, sum(amount) as total from testing.original"
+        )
+    )
+
+    assert data_in_copy[0].get("N") == data_in_original[0].get("N")
+    assert data_in_copy[0].get("total") == data_in_original[0].get("total")
+    assert cnxn.if_exists("testing.copy_temporary") is False
+
+
+def test_failed_copy_table_drops_temporary_table(create_connection, create_connection_testuser, create_test_data_long, monkeypatch):
+    cnxn = create_connection
+    cnxn2 = create_connection_testuser
+    create_test_data_long
+
+    # an existing target table that must survive the failed copy
+    cnxn2.execute_sql(
+        "drop table if exists testing.copy; create table testing.copy (id bigint, datum date, amount decimal(15,2))"
+    )
+    cnxn2.execute_sql(
+        "insert into testing.copy (id, datum, amount) values (1, '2020-01-01', 99.99), (2, '2020-01-02', 99.99)"
+    )
+
+    # let the first chunk succeed and the second one fail
+    original_insert = cnxn2.sql_insert_dictionary
+    calls = []
+
+    def failing_insert(table, data):
+        calls.append(1)
+        if len(calls) > 1:
+            raise RuntimeError("insert failed")
+        original_insert(table, data)
+
+    monkeypatch.setattr(cnxn2, "sql_insert_dictionary", failing_insert)
+
+    with pytest.raises(RuntimeError, match="insert failed"):
+        copy_table(cnxn, "testing.original", cnxn2, into="testing.copy")
+
+    assert cnxn.if_exists("testing.copy_temporary") is False
+
+    data_in_copy = list(
+        cnxn.select_data("select count(1) as N from testing.copy")
+    )
+    assert data_in_copy[0].get("N") == 2
+
 
 def test_list_tables_finds_tables(clean_up_schema, create_connection):
     cnxn = create_connection
@@ -405,12 +468,15 @@ def test_list_tables_finds_tables(clean_up_schema, create_connection):
     )
 
     lijst = cnxn.list_tables("testing")
-    assert lijst == [
+    checklist = [
         "testing.tabel_een",
         "testing.tabel_twee",
         "testing.pinda_noot",
         "testing.noot_pinda",
     ]
+
+
+    assert sorted(lijst) == sorted(checklist)
 
 
 def test_list_tables_finds_tables_with_startswith(create_connection):

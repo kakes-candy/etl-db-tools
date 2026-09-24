@@ -131,7 +131,6 @@ class Column(ABC):
             case _:
                 raise ValueError(f"Data type not implemented: {self.type}")
 
-        logger.debug()
 
         return sql.strip()
 

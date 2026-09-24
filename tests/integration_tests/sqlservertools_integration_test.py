@@ -11,7 +11,8 @@ with open("secrets.toml", "rb") as t:
 
 UID = config.get("DATABASE_ADMIN")
 PWD = config.get("DATABASE_ADMIN_PW")
-cs = f"DRIVER={{ODBC Driver 18 for SQL Server}};SERVER=localhost;DATABASE=master;UID={UID};PWD={PWD};TrustServerCertificate=yes"
+cs = f"DRIVER={{ODBC Driver 18 for SQL Server}};SERVER=127.0.0.1;DATABASE=master;UID={UID};PWD={PWD};TrustServerCertificate=yes"
+
 
 testuser = config.get("DATABASE_TESTUSER")
 testuser_pw = config.get("DATABASE_TESTUSER_PW")
@@ -135,7 +136,7 @@ def create_connection(clean_up_schema):
     clean_up_schema
     cnxn = SQLserverconnection(
         driver="ODBC Driver 18 for SQL Server",
-        server="localhost",
+        server="127.0.0.1",
         database="TestDB",
         UID=testuser,
         PWD=testuser_pw,
@@ -151,7 +152,7 @@ def create_connection_testuser(clean_up_schema):
     clean_up_schema
     cnxn = SQLserverconnection(
         driver="ODBC Driver 18 for SQL Server",
-        server="localhost",
+        server="127.0.0.1",
         database="TestDB",
         UID=testuser,
         PWD=testuser_pw,

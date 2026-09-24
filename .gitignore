@@ -7,3 +7,4 @@ test.py
 secrets.toml
 .DS_Store
 .vscode/
+CLAUDE.md

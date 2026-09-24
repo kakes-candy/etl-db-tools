@@ -297,7 +297,7 @@ def copy_table(
 
     # now switch by dropping the old table and renaming the temp table
     # note: we must remove the schema from the name as it will mess up the sp_rename call
-    data = {"target_name": target_name.split(".")[-1], "temp_table_name": temp_name}
+    data = {"target_name": target_name.split(".")[-1], "target_schema": target_name.split(".")[0],   "temp_table_name": temp_name}
     q = sql_render("finalize_copy.sql", data=data)
 
     target_connection.execute_sql(q)

@@ -5,6 +5,8 @@ from contextlib import contextmanager
 import pyodbc
 import warnings
 import logging
+from azure.identity import AzureCliCredential
+import struct
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +212,46 @@ class SQLserverconnection(Connection):
         ls = self.select_data(q)
         ls_flat = [x.get("table_name") for x in ls]
         return ls_flat
+
+
+class AzureSqlServerConnection(SQLserverconnection):
+
+
+    @staticmethod
+    def process_az_login_token():
+
+        # attribute id
+        SQL_COPT_SS_ACCESS_TOKEN = 1256 
+
+        # Use the cli credential to get a token after the user has signed in via the Azure CLI 'az login' command.
+        credential = AzureCliCredential()
+        databaseToken = credential.get_token('https://database.windows.net/')
+
+        # get bytes from token obtained
+        tokenb = bytes(databaseToken[0], "UTF-8")
+        exptoken = b''
+        for i in tokenb:
+            exptoken += bytes({i})
+            exptoken += bytes(1)
+            tokenstruct = struct.pack("=i", len(exptoken)) + exptoken
+
+        # return encoded token as attribute dict
+        return({SQL_COPT_SS_ACCESS_TOKEN:tokenstruct})
+        
+
+    @contextmanager
+    def connect(self):
+        self.connection = pyodbc.connect(self.to_string(), attrs_before = self.process_az_login_token())
+        self.cursor = self.connection.cursor()
+        try:
+            yield (self)
+        finally:
+            if self.cursor is not None:
+                self.cursor.close()
+                self.cursor = None
+            if self.connection is not None:
+                self.connection.close()
+                self.connection = None
 
 
 # All steps involved in copying a table
